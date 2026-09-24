@@ -4,6 +4,7 @@ import { SECTORS, ACCESS, sectorById, type Sector } from "@/lib/sectors";
 import type { ItemResponse, OtherDataset, SubmissionInput } from "@/lib/types";
 import ItemCard from "./ItemCard";
 import FileUploader from "./FileUploader";
+import CountrySelect from "./CountrySelect";
 import { useI18n } from "./LanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -22,6 +23,11 @@ type Draft = {
 };
 
 const STORAGE_KEY = "data-request-draft-v1";
+
+// Required contact fields, checked in this order (the first missing one gets focus).
+const REQUIRED = { name: "err.name", affiliation: "err.affiliation", email: "err.email" } as const satisfies Record<string, MessageKey>;
+type RequiredField = keyof typeof REQUIRED;
+const isValid = (k: RequiredField, v: string) => (k === "email" ? /^\S+@\S+\.\S+$/.test(v.trim()) : !!v.trim());
 const STEPS: MessageKey[] = ["step.details", "step.sectors", "step.datasets", "step.sharing", "step.review"];
 
 const newDraft = (): Draft => ({
@@ -41,11 +47,12 @@ const visibleGroups = (s: Sector, sub: Record<string, string[]>) =>
   s.hasSubsectors && sub[s.id]?.length ? s.groups.filter((g) => sub[s.id].includes(g.id)) : s.groups;
 
 export default function RequestForm() {
-  const { t, sector, group, item: itemText, option, countryName, countries, locale } = useI18n();
+  const { t, sector, group, item: itemText, option, countryName, locale } = useI18n();
   const [d, setD] = useState<Draft | null>(null);
   const [activeSector, setActiveSector] = useState<string>("");
   const [filter, setFilter] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [invalid, setInvalid] = useState<RequiredField[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -80,14 +87,30 @@ export default function RequestForm() {
   if (!d) return <div className="card animate-pulse text-muted">{t("loading")}</div>;
 
   const up = (patch: Partial<Draft>) => setD((x) => (x ? { ...x, ...patch } : x));
-  const setContact = (k: keyof Draft["contact"], v: string) => up({ contact: { ...d.contact, [k]: v } });
+  const setContact = (k: keyof Draft["contact"], v: string) => {
+    up({ contact: { ...d.contact, [k]: v } });
+    // Clear the red state as soon as a flagged field becomes valid.
+    if (invalid.includes(k as RequiredField) && isValid(k as RequiredField, v)) setInvalid((x) => x.filter((f) => f !== k));
+  };
+  // Props for a required contact input: red border + message below when it failed validation.
+  const req = (k: RequiredField) => ({
+    id: `f-${k}`,
+    "aria-invalid": invalid.includes(k),
+    "aria-describedby": invalid.includes(k) ? `f-${k}-err` : undefined,
+  });
+  const reqError = (k: RequiredField) => invalid.includes(k) && <p id={`f-${k}-err`} className="mt-1 text-xs text-red-600">{t(REQUIRED[k])}</p>;
 
   function validate(step: number) {
     const e: string[] = [];
     if (step === 0) {
-      if (!d!.contact.name.trim()) e.push(t("err.name"));
-      if (!d!.contact.affiliation.trim()) e.push(t("err.affiliation"));
-      if (!/^\S+@\S+\.\S+$/.test(d!.contact.email)) e.push(t("err.email"));
+      const bad = (Object.keys(REQUIRED) as RequiredField[]).filter((k) => !isValid(k, d!.contact[k]));
+      setInvalid(bad);
+      if (bad.length) {
+        const el = document.getElementById(`f-${bad[0]}`);
+        el?.focus({ preventScroll: true });
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return false;
+      }
     }
     if (step === 1 && d!.sectors.length === 0) e.push(t("err.sectors"));
     setErrors(e);
@@ -187,17 +210,14 @@ export default function RequestForm() {
               <h2 className="text-lg font-bold text-navy">{t("step.details")}</h2>
               <p className="mb-5 text-sm text-muted">{t("details.sub")}</p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><label className="label">{t("f.name")}</label><input className="field" value={d.contact.name} onChange={(e) => setContact("name", e.target.value)} autoComplete="name" /></div>
+                <div><label htmlFor="f-name" className="label">{t("f.name")}</label><input {...req("name")} className="field" value={d.contact.name} onChange={(e) => setContact("name", e.target.value)} autoComplete="name" />{reqError("name")}</div>
                 <div><label className="label">{t("f.designation")}</label><input className="field" value={d.contact.designation} onChange={(e) => setContact("designation", e.target.value)} placeholder={t("f.designationPh")} /></div>
-                <div className="sm:col-span-2"><label className="label">{t("f.affiliation")}</label><input className="field" value={d.contact.affiliation} onChange={(e) => setContact("affiliation", e.target.value)} autoComplete="organization" /></div>
-                <div><label className="label">{t("f.email")}</label><input className="field" type="email" value={d.contact.email} onChange={(e) => setContact("email", e.target.value)} autoComplete="email" /></div>
+                <div className="sm:col-span-2"><label htmlFor="f-affiliation" className="label">{t("f.affiliation")}</label><input {...req("affiliation")} className="field" value={d.contact.affiliation} onChange={(e) => setContact("affiliation", e.target.value)} autoComplete="organization" />{reqError("affiliation")}</div>
+                <div><label htmlFor="f-email" className="label">{t("f.email")}</label><input {...req("email")} className="field" type="email" value={d.contact.email} onChange={(e) => setContact("email", e.target.value)} autoComplete="email" />{reqError("email")}</div>
                 <div><label className="label">{t("f.phone")}</label><input className="field" type="tel" value={d.contact.phone} onChange={(e) => setContact("phone", e.target.value)} autoComplete="tel" placeholder={t("f.phonePh")} /></div>
                 <div className="sm:col-span-2">
-                  <label className="label">{t("f.country")}</label>
-                  <select className="field" value={d.contact.country} onChange={(e) => setContact("country", e.target.value)}>
-                    <option value="">{t("select")}</option>
-                    {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-                  </select>
+                  <label htmlFor="f-country" className="label">{t("f.country")}</label>
+                  <CountrySelect id="f-country" value={d.contact.country} onChange={(code) => setContact("country", code)} />
                 </div>
               </div>
             </section>
@@ -456,7 +476,7 @@ export default function RequestForm() {
               </ul>
             )}
             <div className="mt-3 text-[11px] text-muted">{savedAt ? t("side.saved", { time: savedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) }) : t("intro.autosave")}</div>
-            <button className="mt-1 text-[11px] text-muted underline hover:text-red-600" onClick={() => { if (confirm(t("side.confirm"))) setD(newDraft()); }}>{t("side.startOver")}</button>
+            <button className="mt-1 text-[11px] text-muted underline hover:text-red-600" onClick={() => { if (confirm(t("side.confirm"))) { setD(newDraft()); setInvalid([]); } }}>{t("side.startOver")}</button>
           </div>
         </aside>
       </div>
