@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listSubmissions } from "@/lib/storage/db";
 import { SECTORS, sectorById } from "@/lib/sectors";
 import { countryName } from "@/lib/countries";
+import DeleteSubmissionButton from "@/components/DeleteSubmissionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -74,10 +75,10 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <div className="card overflow-x-auto !p-0">
         <table className="w-full text-sm">
           <thead className="bg-ice text-left text-xs uppercase tracking-wide text-muted">
-            <tr><th className="px-4 py-3">Submitted</th><th className="px-4 py-3">Organisation</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Sectors</th><th className="px-4 py-3 text-right">Datasets</th><th className="px-4 py-3 text-right">Files</th><th className="px-4 py-3">Status</th></tr>
+            <tr><th className="px-4 py-3">Submitted</th><th className="px-4 py-3">Organisation</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Sectors</th><th className="px-4 py-3 text-right">Datasets</th><th className="px-4 py-3 text-right">Files</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {subs.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-muted">No submissions yet.</td></tr>}
+            {subs.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-muted">No submissions yet.</td></tr>}
             {subs.map((s) => (
               <tr key={s.id} className="hover:bg-ice/60">
                 <td className="whitespace-nowrap px-4 py-3 text-muted">{new Date(s.submittedAt).toLocaleDateString()}</td>
@@ -87,6 +88,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                 <td className="px-4 py-3 text-right tabular-nums">{s.items.length + s.others.length}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{s.items.reduce((m, i) => m + i.files.length, 0) + s.others.reduce((m, o) => m + o.files.length, 0)}</td>
                 <td className="px-4 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[s.status]}`}>{s.status}</span></td>
+                <td className="px-4 py-3 text-right"><DeleteSubmissionButton id={s.id} label={s.contact.affiliation} /></td>
               </tr>
             ))}
           </tbody>

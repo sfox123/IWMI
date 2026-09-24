@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import Database from "better-sqlite3";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import type { Submission, SubmissionStatus, FileRef } from "@/lib/types";
 import { MODE } from "./files";
 
@@ -215,4 +215,10 @@ export async function updateSubmissionMeta(id: string, patch: { status?: Submiss
     sqlite().prepare("UPDATE submissions SET status = ?, admin_notes = ? WHERE id = ?").run(next.status, next.adminNotes ?? "", id);
   }
   return next;
+}
+
+export async function deleteSubmission(id: string) {
+  if (!validId(id)) return;
+  if (MODE === "aws") return void (await ddb().send(new DeleteCommand({ TableName: table(), Key: { id } })));
+  sqlite().prepare("DELETE FROM submissions WHERE id = ?").run(id); // datasets/files rows cascade
 }

@@ -2,7 +2,7 @@ import "server-only";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ALLOWED_EXTENSIONS } from "@/lib/sectors";
 
@@ -98,4 +98,21 @@ export async function openLocal(key: string) {
   const full = path.join(LOCAL_ROOT, key);
   const stat = await fs.stat(full);
   return { stream: createReadStream(full), size: stat.size };
+}
+
+/** Remove everything under a submission folder ({prefix}/{YYYY}/{MM}/{submissionId}/). */
+export async function deleteFolder(folder: string) {
+  const prefix = folder.replace(/\/+$/, "") + "/";
+  assertKey(prefix);
+  if (MODE === "aws") {
+    let token: string | undefined;
+    do {
+      const r = await s3().send(new ListObjectsV2Command({ Bucket: bucket(), Prefix: prefix, ContinuationToken: token }));
+      const objects = (r.Contents ?? []).map((o) => ({ Key: o.Key! }));
+      if (objects.length) await s3().send(new DeleteObjectsCommand({ Bucket: bucket(), Delete: { Objects: objects, Quiet: true } }));
+      token = r.NextContinuationToken;
+    } while (token);
+  } else {
+    await fs.rm(path.join(LOCAL_ROOT, prefix), { recursive: true, force: true });
+  }
 }
