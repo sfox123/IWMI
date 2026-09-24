@@ -1,14 +1,18 @@
 "use client";
 import { useMemo, useState } from "react";
-import { COUNTRIES, countryName } from "@/lib/countries";
+import { useI18n } from "./LanguageProvider";
+
+const english = new Intl.DisplayNames(["en"], { type: "region" });
 
 export default function CountryPicker(props: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const { t, countries, countryName } = useI18n();
   const [q, setQ] = useState("");
   const matches = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return [];
-    return COUNTRIES.filter((c) => !props.value.includes(c.code) && c.name.toLowerCase().includes(s)).slice(0, 8);
-  }, [q, props.value]);
+    // Match the local-language name or the English one (people often type country names in English).
+    return countries.filter((c) => !props.value.includes(c.code) && (c.name.toLowerCase().includes(s) || english.of(c.code)?.toLowerCase().includes(s))).slice(0, 8);
+  }, [q, props.value, countries]);
 
   const add = (code: string) => { props.onChange([...props.value, code]); setQ(""); };
 
@@ -18,7 +22,7 @@ export default function CountryPicker(props: { value: string[]; onChange: (v: st
         {props.value.map((c) => (
           <span key={c} className="inline-flex items-center gap-1 rounded-full bg-teal px-2.5 py-0.5 text-xs text-white">
             {countryName(c)}
-            <button type="button" onClick={() => props.onChange(props.value.filter((x) => x !== c))} aria-label={`Remove ${countryName(c)}`}>✕</button>
+            <button type="button" onClick={() => props.onChange(props.value.filter((x) => x !== c))} aria-label={t("up.remove", { name: countryName(c) })}>✕</button>
           </span>
         ))}
         <input
@@ -28,7 +32,7 @@ export default function CountryPicker(props: { value: string[]; onChange: (v: st
             if (e.key === "Enter" && matches[0]) { e.preventDefault(); add(matches[0].code); }
             if (e.key === "Backspace" && !q && props.value.length) props.onChange(props.value.slice(0, -1));
           }}
-          placeholder={props.value.length ? "Add another…" : props.placeholder ?? "Type a country…"}
+          placeholder={props.value.length ? t("country.addAnother") : props.placeholder ?? t("country.type")}
           className="min-w-32 flex-1 border-0 bg-transparent px-1 py-0.5 text-sm outline-none"
         />
       </div>

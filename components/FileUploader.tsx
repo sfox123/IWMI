@@ -2,19 +2,22 @@
 import { useRef, useState } from "react";
 import type { FileRef } from "@/lib/types";
 import { ALLOWED_EXTENSIONS } from "@/lib/sectors";
+import { useI18n } from "./LanguageProvider";
 
 type Pending = { name: string; progress: number; error?: string };
 
 const fmtSize = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
 
-function putWithProgress(url: string, file: File, headers: Record<string, string>, onProgress: (p: number) => void) {
+type Msg = ReturnType<typeof useI18n>["t"];
+
+function putWithProgress(url: string, file: File, headers: Record<string, string>, onProgress: (p: number) => void, t: Msg) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status})`)));
-    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(t("up.failed", { status: xhr.status }))));
+    xhr.onerror = () => reject(new Error(t("up.network")));
     xhr.send(file);
   });
 }
@@ -27,6 +30,7 @@ export default function FileUploader(props: {
   files: FileRef[];
   onChange: (files: FileRef[]) => void;
 }) {
+  const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Pending[]>([]);
   const [drag, setDrag] = useState(false);
@@ -37,6 +41,9 @@ export default function FileUploader(props: {
     for (const file of Array.from(list)) {
       setPending((p) => [...p, { name: file.name, progress: 0 }]);
       const update = (patch: Partial<Pending>) => setPending((p) => p.map((x) => (x.name === file.name ? { ...x, ...patch } : x)));
+      // Same extension check the server does, but with a message in the user's language.
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      if (!ALLOWED_EXTENSIONS.includes(ext)) { update({ error: t("up.badType", { ext }) }); continue; }
       try {
         const res = await fetch("/api/uploads", {
           method: "POST",
@@ -47,8 +54,8 @@ export default function FileUploader(props: {
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Upload refused");
-        await putWithProgress(data.url, file, data.headers, (progress) => update({ progress }));
+        if (!res.ok) throw new Error(data.error ?? t("up.refused"));
+        await putWithProgress(data.url, file, data.headers, (progress) => update({ progress }), t);
         added.push({ key: data.key, name: file.name, size: file.size, type: file.type, uploadedAt: new Date().toISOString() });
         setPending((p) => p.filter((x) => x.name !== file.name));
       } catch (e) {
@@ -68,8 +75,8 @@ export default function FileUploader(props: {
         onClick={() => input.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-4 text-center text-sm transition ${drag ? "border-teal bg-teal-50" : "border-line bg-ice/60 hover:border-teal"}`}
       >
-        <span className="font-medium text-navy">⬆ Upload dataset files</span>
-        <span className="mt-0.5 text-xs text-muted">Drag and drop or click · Excel, CSV, GIS, GeoTIFF, NetCDF, PDF, ZIP</span>
+        <span className="font-medium text-navy">{t("up.title")}</span>
+        <span className="mt-0.5 text-xs text-muted">{t("up.hint")}</span>
         <input ref={input} type="file" multiple hidden accept={ALLOWED_EXTENSIONS.map((e) => "." + e).join(",")} onChange={(e) => upload(e.target.files)} />
       </div>
 
@@ -78,7 +85,7 @@ export default function FileUploader(props: {
           {props.files.map((f) => (
             <li key={f.key} className="flex items-center justify-between gap-2 rounded-md bg-teal-50 px-3 py-1.5 text-xs">
               <span className="truncate"><span className="text-teal">✔</span> {f.name} <span className="text-muted">· {fmtSize(f.size)}</span></span>
-              <button type="button" className="text-muted hover:text-red-600" onClick={() => props.onChange(props.files.filter((x) => x.key !== f.key))} aria-label={`Remove ${f.name}`}>✕</button>
+              <button type="button" className="text-muted hover:text-red-600" onClick={() => props.onChange(props.files.filter((x) => x.key !== f.key))} aria-label={t("up.remove", { name: f.name })}>✕</button>
             </li>
           ))}
           {pending.map((p) => (

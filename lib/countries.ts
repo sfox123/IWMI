@@ -8,3 +8,16 @@ export const COUNTRIES: { code: string; name: string }[] = CODES
   .sort((a, b) => a.name.localeCompare(b.name));
 
 export const countryName = (code: string) => names.of(code) ?? code;
+
+// Country names in the form's display language (Intl has Sinhala and Tamil names), sorted for that language.
+const byLang = new Map<string, { name: (code: string) => string; list: { code: string; name: string }[] }>();
+export function localCountries(lang: string) {
+  let v = byLang.get(lang);
+  if (!v) {
+    const dn = new Intl.DisplayNames([lang, "en"], { type: "region" });
+    const name = (code: string) => dn.of(code) ?? code;
+    v = { name, list: CODES.map((code) => ({ code, name: name(code) })).sort((a, b) => a.name.localeCompare(b.name, lang)) };
+    byLang.set(lang, v);
+  }
+  return v;
+}
