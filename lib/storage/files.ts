@@ -20,7 +20,8 @@ const LOCAL_ROOT = path.join(process.cwd(), "data", "uploads");
 export const MAX_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 500) * 1024 * 1024;
 
 let _s3: S3Client | null = null;
-const s3 = () => (_s3 ??= new S3Client({ region: process.env.AWS_REGION }));
+// WHEN_REQUIRED: otherwise the SDK signs a CRC32 of the (empty) presign body into the URL and S3 rejects the browser's PUT.
+const s3 = () => (_s3 ??= new S3Client({ region: process.env.AWS_REGION, requestChecksumCalculation: "WHEN_REQUIRED" }));
 const bucket = () => {
   if (!process.env.S3_BUCKET) throw new Error("S3_BUCKET is not set");
   return process.env.S3_BUCKET;
