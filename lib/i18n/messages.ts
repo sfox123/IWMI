@@ -11,6 +11,8 @@ export type Lang = (typeof LANGS)[number]["code"];
 const en = {
   "header.title": "Data Request Portal",
   "header.language": "Language",
+  "footer.convened": "Convened by",
+  "footer.support": "Technical support",
 
   loading: "Loading form…",
   "err.name": "Please enter your name.",
@@ -145,6 +147,8 @@ type Dict = Record<MessageKey, string>;
 const si: Dict = {
   "header.title": "දත්ත ඉල්ලීම් ද්වාරය",
   "header.language": "භාෂාව",
+  "footer.convened": "සම්බන්ධීකරණය",
+  "footer.support": "තාක්ෂණික සහාය",
 
   loading: "පෝරමය පූරණය වෙමින්…",
   "err.name": "කරුණාකර ඔබගේ නම ඇතුළත් කරන්න.",
@@ -276,6 +280,8 @@ const si: Dict = {
 const ta: Dict = {
   "header.title": "தரவுக் கோரிக்கைத் தளம்",
   "header.language": "மொழி",
+  "footer.convened": "ஒருங்கிணைப்பு",
+  "footer.support": "தொழில்நுட்ப உதவி",
 
   loading: "படிவம் ஏற்றப்படுகிறது…",
   "err.name": "உங்கள் பெயரை உள்ளிடவும்.",

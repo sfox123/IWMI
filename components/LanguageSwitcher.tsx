@@ -4,7 +4,7 @@ import { LANGS, MESSAGES, type Lang } from "@/lib/i18n/messages";
 import { useI18n } from "./LanguageProvider";
 
 // The admin area is English-only: no dropdown there, and the header title stays English.
-const useIsAdmin = () => usePathname()?.startsWith("/admin") ?? false;
+export const useIsAdmin = () => usePathname()?.startsWith("/admin") ?? false;
 
 export function SiteTitle({ custom }: { custom?: string }) {
   const { t } = useI18n();
